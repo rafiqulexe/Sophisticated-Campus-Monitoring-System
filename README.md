@@ -14,47 +14,74 @@
 ---
 
 ## 📌 Project Vision & Overview
-**CampusEye: Sophisticated Campus Monitoring System** is an enterprise-grade, AI-driven computer vision ecosystem engineered to modernize attendance management, security surveillance, and student verification across university campuses.
+**CampusEye** replaces the classroom roll call and the RFID card with a single photograph. A teacher enrols each student once, then photographs the room; every registered face is detected, matched and written to the register, and everyone on the course roster who was not recognised is marked absent.
 
-Starting from an automated single-photo classroom attendance pipeline, CampusEye systematically expands into a **full-campus continuous CCTV monitoring network** capable of multi-camera student tracking, proxy attempt detection, real-time security alerts, and seamless LMS synchronization.
+The longer-term goal is to grow that pipeline into continuous campus monitoring across CCTV feeds. **CSE499A delivered the single-photograph system described below. The CCTV, tracking, anti-proxy and encryption work is planned for CSE499B and is not yet implemented.**
 
-### Key Pillars & Capabilities
-* 📸 **Single-Photo & Continuous CCTV Monitoring:** Processes single group snapshots or continuous RTSP video feeds from campus IP cameras.
-* 🧠 **Deep Learning AI Engine:** Powered by **YuNet ONNX CNN** for high-density multi-scale face detection and **DeepFace (FaceNet / ArcFace)** for robust facial embedding extraction.
-* 👤 **Multi-Sample Biometric Enrollment:** 10 face captures from varied angles averaged into invariant mathematical templates.
-* 🛡️ **Anti-Proxy & Liveness Verification:** Multi-frame presence checks and anomaly alerts for impossible travel (same student detected in two locations simultaneously).
-* 🔒 **Enterprise Multi-Tenancy & Privacy:** Scoped workspaces for faculty, hashed credentials, and AES-256 encrypted biometric storage.
-* 📊 **Faculty Analytics & LMS Export:** Real-time presence logs, student absence detection, and CSV/Excel exports.
+### ✅ Built and working today
+* 📸 **Single-photo classroom attendance:** one group photograph marks the whole class, with every detected face boxed and labelled in the returned image.
+* 🧠 **Deep learning recognition engine:** **YuNet ONNX CNN** for multi-face detection (Haar cascade retained as a compatibility fallback) and **DeepFace / FaceNet** for 128-dimensional embeddings, matched by cosine distance against a tunable threshold.
+* 👤 **Multi-sample biometric enrolment:** 10 photographs per student, averaged into a single template so no one image defines an identity.
+* 🏫 **Course sections and rosters:** relational `classes` and `class_enrollments` tables, CSV roster import, and attendance scoped per section.
+* 🧮 **Automatic absentee resolution:** absentees computed as *roster − recognised*, so one photograph produces a complete register rather than a list of attendees.
+* 🔑 **Multi-tenant isolation:** every student, register and embedding cache is scoped to the owning account, with Werkzeug-hashed passwords. Isolation is asserted by automated tests.
+* 📊 **Reports and export:** per-date register with section filtering, sortable columns, and CSV export for institutional records.
+* 🖼️ **Unknown face capture:** unrecognised faces are saved to disk for later review.
+* 🧪 **25 automated tests** covering authentication, account isolation, roster logic and the schema migration.
+
+### 🛠️ Planned for CSE499B — not yet implemented
+* 🎥 Live browser camera capture (WebRTC) and continuous RTSP ingestion from IP cameras
+* 🎯 Dual-threshold confidence bands with a teacher review queue, and an unknown-faces review gallery
+* 🔁 Multi-object tracking across frames (ByteTrack / DeepSORT)
+* 🛡️ Anti-proxy and liveness verification, impossible-travel detection, security alerts
+* 🔒 AES-256 encryption of biometric templates at rest and a retention policy for captured faces
+* 🔗 LMS synchronisation API and role-based access control
+* 📈 Large-scale accuracy benchmarking on a labelled classroom dataset
 
 ---
 
-## 🗺️ 8-Week Version-by-Version Strategic Roadmap
+## 🗺️ Roadmap
 
 ```mermaid
 timeline
-    title CampusEye: 8-Week Evolution Roadmap
-    section Core Base
-      v1.0 (Week 1) : Architecture & Multi-Tenant DB : Scoped Workspaces : Auth
-      v2.0 (Week 2) : Deep Learning Pipeline : YuNet ONNX : Facenet Embeddings
-      v3.0 (Week 3) : Single-Photo Attendance : Batch Recognition : CSV Reports
-      v4.0 (Week 4) : Web Dashboard : WebRTC Live Stream : Glassmorphism UI
-    section CCTV & Surveillance
-      v5.0 (Week 5) : Course Roster Modeling : Absentee Auto-Calculation : Dual Thresholds
-      v6.0 (Week 6) : Continuous CCTV Video Feeds : RTSP Ingestion : Multi-Object Tracking
-      v7.0 (Week 7) : Anti-Proxy & Liveness Checks : Campus Security Alerts
-      v8.0 (Week 8) : AES-256 Storage Encryption : LMS Sync : Final Defense Prep
+    title CampusEye: delivered in CSE499A, planned for CSE499B
+    section Delivered (CSE499A)
+      Infrastructure : Multi-tenant SQLite schema : Auth & account isolation
+      Recognition : YuNet ONNX detection : FaceNet embeddings : Cosine matching
+      Attendance : Single-photo marking : Unknown face capture : CSV reports
+      Interface : Flask web application : Dark UI design system
+      Rosters : Course sections : CSV roster import : Absentee auto-calculation
+    section Planned (CSE499B)
+      W2 : Live camera capture : Dual-threshold review
+      W3 : RTSP CCTV ingestion
+      W4 : Multi-object tracking
+      W5 : Anti-proxy & security alerts
+      W6 : AES-256 encryption at rest
+      W7 : LMS sync & RBAC
+      W8 : Benchmarking & thesis defence
 ```
 
-| Version | Milestone | Key Deliverables & Features |
+### Delivered in CSE499A
+
+| Area | Deliverables | Status |
 | :--- | :--- | :--- |
-| **v1.0** | **Week 1: Infrastructure & Auth** | Modular directory setup, SQLite multi-tenant schema with `owner_id` scoping, Werkzeug password hashing. *(Completed)* |
-| **v2.0** | **Week 2: Deep Learning Engine** | YuNet ONNX face detection, DeepFace Facenet 128-d embeddings, cosine distance comparison, 10-sample enrollment. *(Completed)* |
-| **v3.0** | **Week 3: Single-Photo Attendance** | Batch classroom photo processing, duplicate marking prevention, CSV exports, unknown face capture queue. *(Completed)* |
-| **v4.0** | **Week 4: WebRTC & Dashboard UI** | Responsive Flask Glassmorphism web interface, browser WebRTC camera streaming, real-time bounding boxes. *(Current)* |
-| **v5.0** | **Week 5: Course & Roster Modeling** | Relational `classes` and `enrollments` tables, automatic calculation of **Present vs. Absent** students per section, dual-threshold flags ($\tau, \tau_{low}$). |
-| **v6.0** | **Week 6: Continuous CCTV Streaming** | RTSP/HTTP continuous video feed ingestion from campus IP cameras, frame downsampling, multi-frame face tracking (DeepSORT/ByteTrack). |
-| **v7.0** | **Week 7: Anti-Proxy & Security Alerts** | Proxy prevention via anomaly detection (e.g. rapid spatial conflicts, double attendance), real-time alerts for faculty and campus security. |
-| **v8.0** | **Week 8: Enterprise Security & Defense** | AES-256 biometric encryption at rest, university LMS REST API sync, 50+ face classroom scale benchmark, final thesis defense deck. |
+| **Infrastructure & auth** | Modular layout, SQLite schema with `owner_id` scoping, Werkzeug password hashing | ✅ Complete |
+| **Recognition engine** | YuNet ONNX detection, FaceNet 128-d embeddings, cosine matching, 10-sample enrolment | ✅ Complete |
+| **Single-photo attendance** | Batch classroom processing, duplicate-safe marking, CSV export, unknown face capture | ✅ Complete |
+| **Web interface** | Flask application, JSON API, accessibility-checked dark UI, responsive 375–1440 px | ✅ Complete |
+| **Courses & rosters** | `classes` / `class_enrollments` tables, CSV import, per-section attendance, absentee resolution | ✅ Complete |
+
+### Planned for CSE499B
+
+| Version | Milestone | Key deliverables |
+| :--- | :--- | :--- |
+| **v2.0** | **Week 2: Live camera & dual threshold** | Browser capture via `getUserMedia`, confidence bands (≤ 0.40 present, 0.40–0.60 review, > 0.60 unknown), one-click Present/Absent/Excused correction, unknown-faces gallery |
+| **v3.0** | **Week 3: Continuous CCTV ingestion** | Threaded RTSP/HTTP stream reading, adaptive frame dropping, annotated MJPEG endpoint |
+| **v4.0** | **Week 4: Multi-object tracking** | ByteTrack or DeepSORT over YuNet detections, persistent track IDs, dwell-time logging |
+| **v5.0** | **Week 5: Anti-proxy & alerts** | Impossible-travel detection, passive anti-spoofing against printed and screen attacks, real-time alerts |
+| **v6.0** | **Week 6: Encryption & privacy** | AES-256-GCM encryption of embeddings at rest, 30-day retention cleanup for captured unknown faces |
+| **v7.0** | **Week 7: LMS integration & analytics** | Attendance trend charts, at-risk flagging below 75%, LMS export endpoints, role-based access control |
+| **v8.0** | **Week 8: Benchmarking & defence** | 40–100 face classroom benchmark, accuracy and false-positive measurement, final thesis defence package |
 
 ---
 
@@ -70,13 +97,16 @@ The folder contains:
 - 🖥️ Final Presentation Slides
 - 💻 Project Demo Video
 - 📄 Final Project Report
+
+The final report (`CampusEye_CSE499A_Final_Report.docx`) and presentation (`Final Presentation slide.pptx`) are also committed to this repository.
+
 ---
 
 ## 🚀 Quick Start Guide
 
 ### Prerequisites
 * Python 3.10+
-* Virtual environment (`.venv`) with dependencies installed
+* Virtual environment (`.venv`) inside `attendance_system/` with dependencies installed
 
 ### Running the Web Application
 ```bash
@@ -90,43 +120,63 @@ cd attendance_system
 Open your browser and navigate to:
 👉 **[http://127.0.0.1:5000](http://127.0.0.1:5000)**
 
+Create an account on first run, then enrol a student, create a course section and import its roster before taking attendance.
+
 ---
 
 ## 🧪 Running Automated Tests
 ```bash
 cd attendance_system
-.venv\Scripts\pytest -v tests/
+.venv\Scripts\python -m pytest -v tests/
 ```
+
+25 tests cover authentication, per-account isolation, course and roster management, absentee resolution and the in-place schema migration.
+
+> **Note:** `tests/test_week3.py` and `tests/test_logic_non_interactive.py` currently write to the live `database/attendance.db` rather than a temporary database. Until that is fixed, running the suite modifies real data.
+
+---
+
+## 🔐 Privacy & Data Handling
+
+Biometric data stays out of version control: `.gitignore` excludes the database, enrolled face images, captured unknown faces and the session secret key. Only `.gitkeep` placeholders are tracked.
+
+Face templates are currently stored as pickled NumPy arrays **without encryption**, and captured unknown faces have **no retention limit**. Both are addressed in the CSE499B plan (Week 6) and neither is suitable for deployment beyond a controlled prototype.
 
 ---
 
 ## 📂 Project Architecture
 ```
 attendance_system/
-├── config.py                 # System thresholds, paths & DeepFace configuration
+├── config.py                 # Thresholds, paths & DeepFace model configuration
 ├── main.py                   # Application entry point
 ├── requirements.txt          # Python dependencies
 ├── database/
-│   ├── db_manager.py         # SQLite schema, user auth CRUD & data isolation
-│   └── attendance.db         # Auto-generated database
+│   ├── db_manager.py         # Schema, migrations, auth & roster CRUD, data isolation
+│   └── attendance.db         # Auto-generated database (gitignored)
 ├── models/
 │   ├── yunet.onnx            # Pre-trained CNN face detector
-│   └── cascades/             # Haar Cascade fallback
+│   └── cascades/             # Haar Cascade compatibility fallback
 ├── utils/
 │   ├── detection.py          # YuNet & Haar multi-face detection
 │   ├── recognition.py        # DeepFace embedding extraction & cosine matching
-│   ├── registration.py       # Multi-sample student enrollment
-│   ├── attendance.py         # Attendance pipeline & CSV report export
+│   ├── registration.py       # Multi-sample student enrolment
+│   ├── attendance.py         # Attendance pipeline, absentee resolution, reports
 │   ├── auth.py               # Account creation & password verification
-│   └── image_processing.py   # Lighting normalization (CLAHE) & resize utils
+│   └── image_processing.py   # CLAHE & resize helpers (currently unused)
 ├── web/
-│   ├── app.py                # Flask routes & JSON REST API
-│   ├── auth.py               # Login, Sign-up, Logout routes
-│   ├── static/               # CSS (Glassmorphism UI) & Vanilla JavaScript
-│   └── templates/            # Jinja2 HTML templates
+│   ├── app.py                # Flask routes & JSON API
+│   ├── auth.py               # Login, sign-up, logout routes
+│   ├── static/
+│   │   ├── css/style.css     # Dark UI design system (layered tokens)
+│   │   └── js/               # common, dashboard, attendance, register,
+│   │                         # reports, courses, course_detail, students
+│   └── templates/            # Jinja2 templates: base, auth, index, register,
+│                             # attendance, reports, courses, course_detail,
+│                             # students, not_found
 └── tests/
-    ├── test_auth.py          # Multi-account isolation & authentication tests
-    ├── test_logic_non_interactive.py # Core registration & pipeline tests
-    ├── test_week3.py         # Attendance marking test
-    └── test_week5.py         # Documentation test
+    ├── test_auth.py                 # Account isolation & authentication
+    ├── test_logic_non_interactive.py # Registration & pipeline logic
+    ├── test_week1_roster.py         # Courses, rosters & absentee resolution
+    ├── test_week3.py                # Attendance marking
+    └── test_week5.py                # Documentation presence
 ```
