@@ -12,7 +12,9 @@
     table: $('.report-table'),
     empty: $('#report-empty'),
     present: $('#rep-present'),
+    absent: $('#rep-absent'),
     rows: $('#rep-rows'),
+    classSelect: $('#report-class'),
   };
 
   const today = toLocalISODate();
@@ -52,24 +54,37 @@
     });
   }
 
+  function sectionOf(r) {
+    return r.course_code ? `${r.course_code}-${r.section}` : '';
+  }
+
   function render() {
     const rows = sortRecords();
 
-    els.body.innerHTML = rows.map((r, i) => `
+    els.body.innerHTML = rows.map((r, i) => {
+      const isPresent = r.status === 'Present';
+      const section = sectionOf(r);
+      return `
       <tr>
         <td class="mono text-3">${i + 1}</td>
         <td><strong>${escapeHtml(r.name || 'Unknown student')}</strong></td>
         <td class="mono">${escapeHtml(r.student_id)}</td>
-        <td class="mono">${escapeHtml(timeOf(r) || '—')}</td>
-        <td><span class="chip chip-present">Present</span></td>
-      </tr>`).join('');
+        <td class="mono">${section ? escapeHtml(section) : '<span class="text-3">—</span>'}</td>
+        <td class="mono">${escapeHtml(isPresent ? (timeOf(r) || '—') : '—')}</td>
+        <td><span class="chip ${isPresent ? 'chip-present' : 'chip-absent'}">${escapeHtml(r.status || 'Present')}</span></td>
+      </tr>`;
+    }).join('');
 
-    els.cards.innerHTML = rows.map((r) => `
+    els.cards.innerHTML = rows.map((r) => {
+      const isPresent = r.status === 'Present';
+      const section = sectionOf(r);
+      return `
       <div class="record-card">
         <span class="rc-name">${escapeHtml(r.name || 'Unknown student')}</span>
-        <span class="rc-status"><span class="chip chip-present">Present</span></span>
-        <span class="rc-meta">${escapeHtml(r.student_id)} &nbsp;/&nbsp; ${escapeHtml(timeOf(r) || '—')}</span>
-      </div>`).join('');
+        <span class="rc-status"><span class="chip ${isPresent ? 'chip-present' : 'chip-absent'}">${escapeHtml(r.status || 'Present')}</span></span>
+        <span class="rc-meta">${escapeHtml(r.student_id)}${section ? ` &nbsp;/&nbsp; ${escapeHtml(section)}` : ''}${isPresent && timeOf(r) ? ` &nbsp;/&nbsp; ${escapeHtml(timeOf(r))}` : ''}</span>
+      </div>`;
+    }).join('');
 
     $$('th[data-sort]').forEach((th) => {
       if (th.dataset.sort === sort.key) {
@@ -81,20 +96,49 @@
   }
 
   /* ---- load ------------------------------------------------------------ */
+  async function loadClasses() {
+    try {
+      const res = await api('/api/classes');
+      const classes = res.classes || [];
+      els.classSelect.innerHTML =
+        '<option value="">All sections</option>'
+        + classes.map((c) =>
+            `<option value="${c.id}">${escapeHtml(c.course_code)}-${escapeHtml(c.section)}`
+            + ` · ${escapeHtml(c.course_name)}</option>`).join('');
+
+      const preset = new URLSearchParams(location.search).get('class_id');
+      if (preset && classes.some((c) => String(c.id) === preset)) {
+        els.classSelect.value = preset;
+      }
+    } catch (_) {
+      // A missing section list must not block the register itself.
+    }
+  }
+
   async function load() {
     const date = els.date.value || today;
+    const classId = els.classSelect.value;
     syncNav();
     setLoading(els.btnRefresh, true, 'Loading');
     els.empty.classList.add('hidden');
 
+    const query = `date=${encodeURIComponent(date)}`
+      + (classId ? `&class_id=${encodeURIComponent(classId)}` : '');
+
     try {
-      const res = await api(`/api/attendance/records?date=${encodeURIComponent(date)}`);
+      const res = await api(`/api/attendance/records?${query}`);
       records = res.records || [];
 
-      const presentCount = new Set(records.map((r) => r.student_id)).size;
+      const presentCount = new Set(
+        records.filter((r) => r.status === 'Present').map((r) => r.student_id)).size;
+      const absentCount = new Set(
+        records.filter((r) => r.status === 'Absent').map((r) => r.student_id)).size;
+
       els.present.textContent = `${presentCount} present`;
+      els.absent.textContent = `${absentCount} absent`;
+      els.absent.classList.toggle('hidden', absentCount === 0);
       els.rows.textContent = `${records.length} record${records.length === 1 ? '' : 's'}`;
-      els.btnDownload.href = `/api/reports/download?date=${encodeURIComponent(date)}`;
+      els.btnDownload.href = `/api/reports/download?${query}`;
 
       if (!records.length) {
         els.body.innerHTML = '';
@@ -117,6 +161,7 @@
 
   /* ---- wiring ---------------------------------------------------------- */
   els.date.addEventListener('change', load);
+  els.classSelect.addEventListener('change', load);
   els.btnRefresh.addEventListener('click', load);
   els.btnPrev.addEventListener('click', () => shiftDate(-1));
   els.btnNext.addEventListener('click', () => shiftDate(1));
@@ -138,5 +183,5 @@
     });
   });
 
-  load();
+  loadClasses().then(load);
 })();

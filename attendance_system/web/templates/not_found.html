@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Not found{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="empty">
+    <span class="empty-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16.5" x2="12.01" y2="16.5"/>
+      </svg>
+    </span>
+    <strong>Not found</strong>
+    <p>That page doesn't exist, or it belongs to another account.</p>
+    <a class="btn btn-ghost" href="/">Back to overview</a>
+  </div>
+</section>
+{% endblock %}

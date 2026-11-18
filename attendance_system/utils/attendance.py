@@ -6,7 +6,7 @@ from datetime import datetime
 import cv2
 import numpy as np
 
-from database.db_manager import get_connection, get_all_students
+from database.db_manager import get_connection, get_all_students, get_class_roster
 from utils.detection import detect_faces, draw_face_boxes, extract_face
 from utils.recognition import get_face_embedding, recognize_face
 from config import UNKNOWN_DIR
@@ -23,18 +23,49 @@ def get_cached_students(force_refresh=False, owner_id=None):
     return cached
 
 
-def mark_attendance(student_id, status="Present", attendance_date=None, owner_id=0):
-    """Insert or update attendance for a student for a given date."""
+def mark_attendance(student_id, status="Present", attendance_date=None, owner_id=0,
+                    class_id=None, confidence_score=None):
+    """Insert or update one attendance row for a student, date and class.
+
+    W1 (v1.1): attendance is now keyed by class as well, and carries the
+    match distance that produced it.
+
+    INSERT OR REPLACE cannot be used here. The uniqueness rule includes
+    class_id, and SQLite treats every NULL as distinct in a UNIQUE index, so
+    an un-classed scan would insert a fresh duplicate row on every run instead
+    of updating the existing one. The lookup below matches NULL explicitly.
+    """
     if attendance_date is None:
         attendance_date = datetime.now().strftime("%Y-%m-%d")
 
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     conn = get_connection()
-    cursor = conn.cursor()
     try:
-        cursor.execute(
-            "INSERT OR REPLACE INTO attendance (student_id, owner_id, date, status, timestamp) VALUES (?, ?, ?, ?, ?)",
-            (student_id, owner_id, attendance_date, status, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-        )
+        if class_id is None:
+            existing = conn.execute(
+                "SELECT id FROM attendance WHERE owner_id = ? AND class_id IS NULL "
+                "AND student_id = ? AND date = ?",
+                (owner_id, student_id, attendance_date),
+            ).fetchone()
+        else:
+            existing = conn.execute(
+                "SELECT id FROM attendance WHERE owner_id = ? AND class_id = ? "
+                "AND student_id = ? AND date = ?",
+                (owner_id, class_id, student_id, attendance_date),
+            ).fetchone()
+
+        if existing:
+            conn.execute(
+                "UPDATE attendance SET status = ?, confidence_score = ?, timestamp = ? WHERE id = ?",
+                (status, confidence_score, now, existing["id"]),
+            )
+        else:
+            conn.execute(
+                "INSERT INTO attendance "
+                "(student_id, owner_id, class_id, date, status, confidence_score, timestamp) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (student_id, owner_id, class_id, attendance_date, status, confidence_score, now),
+            )
         conn.commit()
         return True
     except Exception as exc:
@@ -42,6 +73,35 @@ def mark_attendance(student_id, status="Present", attendance_date=None, owner_id
         return False
     finally:
         conn.close()
+
+
+def resolve_absentees(class_id, attendance_date=None, owner_id=0):
+    """W1 (v1.1): Absent = class roster − students already marked Present.
+
+    Writes an explicit Absent row for every enrolled student who has no
+    Present record for the date, so the register is complete in the database
+    and in any CSV exported from it rather than only being inferred in the UI.
+    Students already marked by a teacher (Excused, or a manual override) are
+    left exactly as they are.
+    """
+    if attendance_date is None:
+        attendance_date = datetime.now().strftime("%Y-%m-%d")
+
+    conn = get_connection()
+    roster = [r["student_id"] for r in conn.execute(
+        "SELECT student_id FROM class_enrollments WHERE class_id = ?", (class_id,)
+    )]
+    recorded = {r["student_id"] for r in conn.execute(
+        "SELECT student_id FROM attendance WHERE class_id = ? AND date = ? AND owner_id = ?",
+        (class_id, attendance_date, owner_id),
+    )}
+    conn.close()
+
+    missing = [sid for sid in roster if sid not in recorded]
+    for student_id in missing:
+        mark_attendance(student_id, status="Absent", attendance_date=attendance_date,
+                        owner_id=owner_id, class_id=class_id)
+    return len(missing)
 
 
 def get_attendance_records(attendance_date=None, owner_id=None):
@@ -66,24 +126,40 @@ def get_attendance_records(attendance_date=None, owner_id=None):
     return [dict(row) for row in rows]
 
 
-def get_attendance_records_detailed(attendance_date=None, owner_id=None):
-    """Fetch attendance rows for a date, joined with student names."""
+def get_attendance_records_detailed(attendance_date=None, owner_id=None, class_id=None):
+    """Fetch attendance rows for a date, joined with student and class names.
+
+    class_id filters to a single course section; omit it for every class.
+    """
     if attendance_date is None:
         attendance_date = datetime.now().strftime("%Y-%m-%d")
 
     conn = get_connection()
     cursor = conn.cursor()
+    # A student on the roster but not yet face-enrolled has no students row, so
+    # the name falls back to the one their roster import carried. Without this
+    # every absentee reads as "Unknown student".
     query = """
-        SELECT a.student_id, s.name, a.date, a.status, a.timestamp
+        SELECT a.student_id, COALESCE(s.name, e.name) AS name,
+               a.date, a.status, a.timestamp,
+               a.confidence_score, a.class_id,
+               c.course_code, c.section
         FROM attendance a
         LEFT JOIN students s ON a.student_id = s.student_id AND a.owner_id = s.owner_id
+        LEFT JOIN classes  c ON c.id = a.class_id
+        LEFT JOIN class_enrollments e
+               ON e.class_id = a.class_id AND e.student_id = a.student_id
         WHERE a.date = ?
     """
     params = [attendance_date]
     if owner_id is not None:
         query += " AND a.owner_id = ?"
         params.append(owner_id)
-    query += " ORDER BY a.timestamp"
+    if class_id is not None:
+        query += " AND a.class_id = ?"
+        params.append(class_id)
+    # Present first, then Absent, each in the order they were recorded.
+    query += " ORDER BY CASE a.status WHEN 'Present' THEN 0 ELSE 1 END, a.timestamp"
 
     cursor.execute(query, params)
     rows = cursor.fetchall()
@@ -104,19 +180,33 @@ def export_attendance_report(output_path, attendance_date=None):
     return output_path
 
 
-def process_attendance_image(image, owner_id=None):
+def process_attendance_image(image, owner_id=None, class_id=None):
     """
     W3-T1: Full pipeline to detect, recognize and mark attendance from an image.
     owner_id scopes recognition and marking to one account's students.
+
+    W1 (v1.1): when class_id is given, recognition is narrowed to that class's
+    roster and every enrolled student who is not recognised is marked Absent.
+
     Returns: (processed_image, list_of_matches)
     """
     # 1. Detect faces
     face_boxes = detect_faces(image)
     if not face_boxes:
+        # Still resolve absentees: a class photographed with nobody in it, or
+        # with no detectable face, is a class where everyone is absent.
+        if class_id is not None:
+            resolve_absentees(class_id, owner_id=owner_id or 0)
         return image, []
 
     # 2. Get known students (Cached for performance W5-T6)
     known_students = get_cached_students(owner_id=owner_id)
+
+    # 3. Narrow to the class roster so a student can never be marked present
+    #    in a course they are not enrolled on.
+    if class_id is not None:
+        roster_ids = {r["student_id"] for r in get_class_roster(class_id)}
+        known_students = [s for s in known_students if s["student_id"] in roster_ids]
 
     matches = []
     labels = []
@@ -131,8 +221,9 @@ def process_attendance_image(image, owner_id=None):
             matches.append(res)
 
             if res['match']:
-                # 4. Mark attendance in DB
-                mark_attendance(res['student_id'], owner_id=owner_id or 0)
+                # 4. Mark attendance in DB, keeping the match distance
+                mark_attendance(res['student_id'], owner_id=owner_id or 0,
+                                class_id=class_id, confidence_score=res['distance'])
                 labels.append(f"{res['name']} ({res['distance']})")
             else:
                 # W5-T7: Handle "Unknown" faces – log them for manual review
@@ -145,7 +236,11 @@ def process_attendance_image(image, owner_id=None):
             labels.append("Processing Error")
             matches.append({'student_id': 'ERROR', 'name': 'Error', 'match': False})
 
-    # 5. Draw results
+    # 5. Roster difference: everyone enrolled but not recognised is Absent.
+    if class_id is not None:
+        resolve_absentees(class_id, owner_id=owner_id or 0)
+
+    # 6. Draw results
     processed_image = draw_face_boxes(image, face_boxes, labels)
 
     return processed_image, matches

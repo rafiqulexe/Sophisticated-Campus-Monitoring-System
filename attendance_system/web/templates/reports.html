@@ -28,6 +28,10 @@
           <button class="btn btn-ghost btn-sm" data-quick="0" type="button">Today</button>
           <button class="btn btn-ghost btn-sm" data-quick="1" type="button">Yesterday</button>
         </div>
+        <div class="field" style="min-width:min(260px,100%)">
+          <label for="report-class">Section</label>
+          <select id="report-class"><option value="">All sections</option></select>
+        </div>
       </div>
 
       <div class="report-actions">
@@ -53,6 +57,7 @@
     <h2 id="records-heading">Register</h2>
     <div class="panel-head-actions">
       <span class="chip chip-present" id="rep-present">0 present</span>
+      <span class="chip chip-absent" id="rep-absent">0 absent</span>
       <span class="chip chip-plain" id="rep-rows">0 records</span>
     </div>
   </div>
@@ -73,18 +78,27 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 15 12 9 18 15"/></svg>
             </button>
           </th>
+          <th scope="col" data-sort="course_code">
+            <button type="button">Section
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 15 12 9 18 15"/></svg>
+            </button>
+          </th>
           <th scope="col" data-sort="timestamp">
             <button type="button">Time
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 15 12 9 18 15"/></svg>
             </button>
           </th>
-          <th scope="col">Status</th>
+          <th scope="col" data-sort="status">
+            <button type="button">Status
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 15 12 9 18 15"/></svg>
+            </button>
+          </th>
         </tr>
       </thead>
       <tbody id="report-body">
-        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
-        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
-        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
+        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
+        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
+        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
       </tbody>
     </table>
   </div>

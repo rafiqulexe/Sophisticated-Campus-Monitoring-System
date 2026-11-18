@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Courses{% endblock %}
+
+{% block content %}
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Manage</p>
+    <h1>Courses &amp; sections</h1>
+    <p class="sub">Each section keeps its own roster. Attendance is recorded against a section, so the same student can be registered in several courses.</p>
+  </div>
+  <div class="page-head-actions">
+    <button class="btn btn-primary" id="btn-new-course" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      New course
+    </button>
+  </div>
+</header>
+
+<!-- Create / edit form. Hidden until invoked. -->
+<section class="panel hidden" id="course-form-card" aria-labelledby="course-form-heading">
+  <div class="panel-head">
+    <h2 id="course-form-heading">New course section</h2>
+    <button class="btn btn-quiet btn-sm" id="btn-cancel-course" type="button">Cancel</button>
+  </div>
+  <div class="panel-body">
+    <form id="course-form" novalidate>
+      <input type="hidden" id="course-id">
+      <div class="field-grid">
+        <div class="field">
+          <label for="course-code">Course code</label>
+          <input id="course-code" name="course_code" placeholder="CSE499" autocomplete="off" spellcheck="false" required>
+        </div>
+        <div class="field">
+          <label for="course-name">Course name</label>
+          <input id="course-name" name="course_name" placeholder="Senior Design Project" autocomplete="off" required>
+        </div>
+        <div class="field">
+          <label for="course-section">Section</label>
+          <input id="course-section" name="section" placeholder="15" autocomplete="off" spellcheck="false" required>
+        </div>
+        <div class="field">
+          <label for="course-semester">Semester</label>
+          <input id="course-semester" name="semester" placeholder="Summer 2026" autocomplete="off" required>
+        </div>
+      </div>
+      <div class="cluster" style="margin-top:var(--s-5)">
+        <button class="btn btn-primary" type="submit" id="btn-save-course">Save course</button>
+        <p class="field-hint" id="course-form-hint">All four fields are required.</p>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="panel" aria-labelledby="courses-heading">
+  <div class="panel-head">
+    <h2 id="courses-heading">Your sections</h2>
+    <span class="chip chip-plain" id="course-count">—</span>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table" id="courses-table">
+      <caption class="sr-only">Course sections you teach</caption>
+      <thead>
+        <tr>
+          <th scope="col">Course</th>
+          <th scope="col">Section</th>
+          <th scope="col">Semester</th>
+          <th scope="col">Roster</th>
+          <th scope="col"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody id="courses-body">
+        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
+        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="record-cards" id="course-cards"></div>
+
+  <div class="empty hidden" id="courses-empty">
+    <span class="empty-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H19a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5.5A1.5 1.5 0 0 0 4 20.5z"/><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H20"/>
+      </svg>
+    </span>
+    <strong>No courses yet</strong>
+    <p>Create a section, import its roster, and attendance scans will resolve absentees automatically.</p>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/courses.js') }}"></script>
+{% endblock %}

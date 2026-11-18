@@ -56,6 +56,22 @@
         </a>
 
         <p class="nav-label">Manage</p>
+        <a class="nav-item" href="/courses"
+           {% if request.path.startswith('/courses') %}aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H19a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5.5A1.5 1.5 0 0 0 4 20.5z"/>
+            <path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H20"/>
+          </svg>
+          <span>Courses</span>
+        </a>
+        <a class="nav-item" href="/students"
+           {% if request.path.startswith('/students') %}aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20"/>
+            <circle cx="10" cy="8" r="3.5"/><path d="M20 20v-1.5a3.5 3.5 0 0 0-2.6-3.4"/><path d="M15 4.6a3.5 3.5 0 0 1 0 6.8"/>
+          </svg>
+          <span>Students</span>
+        </a>
         <a class="nav-item" href="/register"
            {% if request.path.startswith('/register') %}aria-current="page"{% endif %}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{{ course.course_code }}-{{ course.section }}{% endblock %}
+
+{% block content %}
+<div id="course-root" data-class-id="{{ course.id }}">
+
+<header class="page-head">
+  <div>
+    <p class="eyebrow"><a href="/courses">Courses</a> &nbsp;/&nbsp; Roster</p>
+    <h1>{{ course.course_code }} &middot; Section {{ course.section }}</h1>
+    <p class="sub">{{ course.course_name }} &nbsp;/&nbsp; {{ course.semester }}</p>
+  </div>
+  <div class="page-head-actions">
+    <a class="btn btn-primary" href="/attendance?class_id={{ course.id }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3.25"/>
+      </svg>
+      Take attendance
+    </a>
+  </div>
+</header>
+
+<div class="row row-aside-main">
+
+  <!-- Add students -->
+  <div class="stack">
+    <section class="panel" aria-labelledby="add-heading">
+      <div class="panel-head"><h2 id="add-heading">Add students</h2></div>
+      <div class="panel-body">
+        <form id="add-form" class="stack">
+          <div class="field">
+            <label for="add-ids">Student IDs</label>
+            <input id="add-ids" placeholder="2122414642, 2131058043" autocomplete="off" spellcheck="false">
+            <p class="field-hint">Separate several with commas or new lines.</p>
+          </div>
+          <button class="btn btn-secondary" type="submit" id="btn-add">Add to roster</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="import-heading">
+      <div class="panel-head"><h2 id="import-heading">Import CSV</h2></div>
+      <div class="panel-body">
+        <label class="dropzone" for="roster-file" id="roster-dropzone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="16.5 8 12 3.5 7.5 8"/><line x1="12" y1="3.5" x2="12" y2="15"/>
+          </svg>
+          <strong>Choose a roster file</strong>
+          <small>CSV &nbsp;/&nbsp; student ID in the first column</small>
+          <input id="roster-file" type="file" accept=".csv,text/csv" hidden>
+        </label>
+        <p class="field-hint" style="margin-top:var(--s-3)">
+          A header row is detected and skipped. Students who are already on the roster are ignored.
+        </p>
+      </div>
+    </section>
+  </div>
+
+  <!-- Roster -->
+  <section class="panel" aria-labelledby="roster-heading">
+    <div class="panel-head">
+      <h2 id="roster-heading">Roster</h2>
+      <div class="panel-head-actions">
+        <span class="chip chip-plain" id="roster-count">—</span>
+        <span class="chip chip-unknown hidden" id="roster-noface">—</span>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="table" id="roster-table">
+        <caption class="sr-only">Students enrolled on this section</caption>
+        <thead>
+          <tr>
+            <th scope="col">Student ID</th>
+            <th scope="col">Name</th>
+            <th scope="col">Face profile</th>
+            <th scope="col"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody id="roster-body">
+          <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
+          <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="record-cards" id="roster-cards"></div>
+
+    <div class="empty hidden" id="roster-empty">
+      <span class="empty-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20"/><circle cx="10" cy="8" r="3.5"/>
+        </svg>
+      </span>
+      <strong>Roster is empty</strong>
+      <p>Add student IDs directly, or import the section's CSV roster. Absentees are calculated from this list.</p>
+    </div>
+  </section>
+</div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/course_detail.js') }}"></script>
+{% endblock %}

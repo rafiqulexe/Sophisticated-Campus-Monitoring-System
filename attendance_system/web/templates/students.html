@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Students{% endblock %}
+
+{% block content %}
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Manage</p>
+    <h1>Enrolled students</h1>
+    <p class="sub">Every student with a face profile on this account, and the sections they belong to.</p>
+  </div>
+  <div class="page-head-actions">
+    <a class="btn btn-primary" href="/register">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-4A3.5 3.5 0 0 0 4 18.5V20"/><circle cx="9.5" cy="8" r="3.5"/><line x1="18" y1="8" x2="18" y2="14"/><line x1="21" y1="11" x2="15" y2="11"/>
+      </svg>
+      Enrol student
+    </a>
+  </div>
+</header>
+
+<section class="panel" aria-labelledby="students-heading">
+  <div class="panel-head">
+    <h2 id="students-heading">Face profiles</h2>
+    <div class="panel-head-actions">
+      <div class="field">
+        <label class="sr-only" for="student-search">Search students</label>
+        <input id="student-search" type="search" placeholder="Search by name or ID" autocomplete="off">
+      </div>
+      <span class="chip chip-plain" id="student-count">—</span>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table" id="students-table">
+      <caption class="sr-only">Students with an enrolled face profile</caption>
+      <thead>
+        <tr>
+          <th scope="col">Student ID</th>
+          <th scope="col">Name</th>
+          <th scope="col">Sections</th>
+          <th scope="col"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody id="students-body">
+        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
+        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
+        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="record-cards" id="students-cards"></div>
+
+  <div class="empty hidden" id="students-empty">
+    <span class="empty-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20"/><circle cx="10" cy="8" r="3.5"/>
+      </svg>
+    </span>
+    <strong id="students-empty-title">No students enrolled</strong>
+    <p id="students-empty-body">Enrol a student to create their biometric profile.</p>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/students.js') }}"></script>
+{% endblock %}

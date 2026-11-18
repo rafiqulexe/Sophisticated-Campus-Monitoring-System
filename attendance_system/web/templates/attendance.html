@@ -18,6 +18,24 @@
   </div>
 </header>
 
+<!-- Section picker. Drives roster scoping and absentee resolution. -------- -->
+<section class="panel panel-quiet" aria-labelledby="class-heading">
+  <div class="panel-body">
+    <h2 class="sr-only" id="class-heading">Choose a course section</h2>
+    <div class="report-bar">
+      <div class="field" style="min-width:min(320px,100%)">
+        <label for="class-select">Course section</label>
+        <select id="class-select">
+          <option value="">Loading sections…</option>
+        </select>
+      </div>
+      <p class="field-hint" id="class-hint">
+        Pick a section to scope recognition to its roster and mark absentees automatically.
+      </p>
+    </div>
+  </div>
+</section>
+
 <!-- Uploader. Collapses to a compact bar once a photo is chosen. ---------- -->
 <section aria-labelledby="upload-heading">
   <h2 class="sr-only" id="upload-heading">Upload a classroom photo</h2>
@@ -87,6 +105,10 @@
         <strong id="res-unknown">0</strong>
         <span>Unidentified</span>
       </div>
+      <div class="tally tally-absent hidden" id="tally-absent">
+        <strong id="res-absent">0</strong>
+        <span>Absent</span>
+      </div>
     </div>
 
     <div id="recognized-list"></div>
@@ -104,11 +126,17 @@
 <section class="panel" aria-labelledby="log-heading">
   <div class="panel-head">
     <h2 id="log-heading">Today's register</h2>
-    <span class="chip chip-present" id="log-count">0 present</span>
+    <div class="panel-head-actions">
+      <span class="chip chip-present" id="log-count">0 present</span>
+      <span class="chip chip-absent hidden" id="log-absent">0 absent</span>
+      <button class="btn btn-ghost btn-sm hidden" id="btn-close-register" type="button">
+        Close register
+      </button>
+    </div>
   </div>
   <div class="table-wrap">
     <table class="table">
-      <caption class="sr-only">Students marked present today</caption>
+      <caption class="sr-only">Today's attendance register</caption>
       <thead>
         <tr>
           <th scope="col">Student</th>

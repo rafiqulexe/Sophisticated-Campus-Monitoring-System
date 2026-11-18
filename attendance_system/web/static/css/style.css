@@ -1480,7 +1480,6 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     gap: var(--s-8);
     padding: var(--s-10);
     background: var(--surface-0);
@@ -1502,6 +1501,10 @@
   }
   .auth-aside > * { position: relative; z-index: 1; }
 
+  /* The brand sits at the top; the pitch takes the remaining height and
+     centres itself in it, so the panel stays balanced without a spacer. */
+  .auth-pitch { margin-block: auto; }
+
   .auth-pitch h2 {
     font-size: var(--fs-2xl);
     font-weight: 600;
@@ -1510,26 +1513,6 @@
     max-width: 16ch;
   }
   .auth-pitch p { font-size: var(--fs-base); color: var(--text-2); max-width: 42ch; }
-
-  .auth-specs { display: flex; flex-direction: column; gap: var(--s-3); margin-top: var(--s-8); }
-  .auth-spec {
-    display: flex;
-    align-items: baseline;
-    gap: var(--s-3);
-    font-size: var(--fs-sm);
-    color: var(--text-2);
-    padding-top: var(--s-3);
-    border-top: 1px solid var(--border-subtle);
-  }
-  .auth-spec .k {
-    font-family: var(--font-mono);
-    font-size: var(--fs-micro);
-    letter-spacing: var(--tracking-label);
-    text-transform: uppercase;
-    color: var(--text-3);
-    width: 92px;
-    flex-shrink: 0;
-  }
 
   /* Right: the form. */
   .auth-main {
@@ -1562,12 +1545,6 @@
   .auth-alt { margin-top: var(--s-6); font-size: var(--fs-sm); color: var(--text-3); }
   .auth-alt a { color: var(--text-1); font-weight: 500; border-bottom: 1px solid var(--border-strong); }
   .auth-alt a:hover { border-bottom-color: var(--text-1); }
-
-  .auth-foot {
-    font-family: var(--font-mono);
-    font-size: var(--fs-micro);
-    color: var(--text-3);
-  }
 }
 
 /* ==========================================================================
@@ -1750,4 +1727,122 @@
   .table thead th, .table tbody td { color: #000; border-color: #ddd; }
   .record-cards { display: none !important; }
   .report-table { display: table !important; }
+}
+
+/* ==========================================================================
+   W1 (v1.1) — course sections, rosters and absentee status
+   Appended after the layered blocks so these rules sit in the same
+   unlayered band as the responsive overrides above.
+   ========================================================================== */
+
+/* ---- Select controls ---------------------------------------------------- */
+/* Native selects ignore most styling, so the chevron is drawn as a
+   background image and the platform arrow is removed. */
+.field select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: var(--s-8);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23858D9B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--s-3) center;
+  background-size: 15px;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+.field select:disabled { opacity: 0.5; cursor: not-allowed; }
+/* The dropdown list itself is painted by the OS; give it the panel colour
+   so it does not flash white on a dark page. */
+.field select option { background: var(--surface-2); color: var(--text-1); }
+
+/* Search inputs carry the same treatment as text inputs. */
+.field input[type="search"] { min-width: 200px; }
+.field input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  height: 13px;
+  width: 13px;
+  cursor: pointer;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23858D9B' stroke-width='2.5' stroke-linecap='round'%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* ---- Absent status ------------------------------------------------------ */
+.tally-absent strong { color: var(--absent); }
+
+/* A fourth tally appears once a roster is in play. */
+.tallies:has(> .tally:nth-child(4):not(.hidden)) {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* ---- Panel head that wraps ---------------------------------------------- */
+/* Course and roster panels put a search field and several chips in the
+   header, which needs to wrap rather than squash on narrow screens. */
+.panel-head { flex-wrap: wrap; }
+.panel-head-actions { flex-wrap: wrap; }
+.panel-head .field { gap: 0; }
+
+/* ---- Breadcrumb in the page eyebrow ------------------------------------- */
+.page-head .eyebrow a { color: var(--text-2); }
+.page-head .eyebrow a:hover { color: var(--text-1); text-decoration: underline; }
+
+/* ---- Roster / course action clusters ------------------------------------ */
+.table .cluster { gap: var(--s-2); flex-wrap: nowrap; justify-content: flex-end; }
+
+@media (max-width: 900px) {
+  .tallies:has(> .tally:nth-child(4):not(.hidden)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tally:nth-child(-n + 2) { border-bottom: 1px solid var(--border-subtle); }
+}
+
+@media (max-width: 768px) {
+  .tallies:has(> .tally:nth-child(4):not(.hidden)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .report-bar .field { width: 100%; }
+  .date-nav { flex-wrap: wrap; }
+}
+
+@media (max-width: 640px) {
+  /* Course and student tables reflow into the same card list the report
+     table uses, so no wide table survives on a phone. */
+  #courses-table, #roster-table, #students-table { display: none; }
+  #course-cards, #roster-cards, #students-cards { display: flex; }
+  .table .cluster { justify-content: flex-start; }
+}
+
+@media print {
+  #course-cards, #roster-cards, #students-cards { display: none !important; }
+  #courses-table, #roster-table, #students-table { display: table !important; }
+}
+
+/* ==========================================================================
+   Target size (WCAG 2.2 · 2.5.8 Target Size Minimum, 24x24)
+   --------------------------------------------------------------------------
+   Two controls inherit their height from surrounding text and land under the
+   minimum: the sortable column headers and the breadcrumb link. Both are
+   grown with padding offset by an equal negative margin, so the hit area
+   expands while the visual layout stays exactly where it was.
+   ========================================================================== */
+
+/* Sort buttons fill their whole header cell rather than just the label. */
+.table th button {
+  margin: calc(var(--s-3) * -1) calc(var(--s-5) * -1);
+  padding: var(--s-3) var(--s-5);
+  min-height: 24px;
+  width: calc(100% + var(--s-5) * 2);
+  justify-content: flex-start;
+}
+.table th button:focus-visible { outline-offset: -2px; }
+
+/* Breadcrumb link in the page eyebrow. */
+.page-head .eyebrow a {
+  display: inline-block;
+  padding: 5px 6px;
+  margin: -5px -6px;
+  border-radius: var(--r-sm);
+}
+
+@media (max-width: 640px) {
+  /* The report table is replaced by cards below 640px, so its header
+     buttons no longer exist — nothing to compensate for here. */
+  .table th button { width: auto; }
 }
