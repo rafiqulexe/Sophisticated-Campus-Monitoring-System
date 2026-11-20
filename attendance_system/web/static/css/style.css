@@ -927,7 +927,8 @@
     flex-shrink: 0;
     display: grid;
     place-items: center;
-    width: 22px; height: 22px;
+    /* 24px is the WCAG 2.2 minimum target size (2.5.8). */
+    width: 24px; height: 24px;
     border-radius: var(--r-sm);
     color: var(--text-3);
     cursor: pointer;
@@ -1845,4 +1846,186 @@
   /* The report table is replaced by cards below 640px, so its header
      buttons no longer exist — nothing to compensate for here. */
   .table th button { width: auto; }
+}
+
+/* ==========================================================================
+   W2 (v2.0) — live capture, confidence bands, correction, unknown faces
+   ========================================================================== */
+
+/* ---- Capture source tabs ------------------------------------------------ */
+.source-tabs {
+  display: flex;
+  gap: var(--s-1);
+  padding: var(--s-1);
+  margin-bottom: var(--s-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.source-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 36px;
+  padding: 0 var(--s-4);
+  border-radius: var(--r-md);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-2);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.source-tab svg { width: 15px; height: 15px; flex-shrink: 0; }
+.source-tab:hover { color: var(--text-1); background: var(--surface-2); }
+.source-tab.is-active {
+  background: var(--surface-3);
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+/* ---- Camera stage ------------------------------------------------------- */
+.camera-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 300px;
+  aspect-ratio: 16 / 9;
+  max-height: 58vh;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.camera-stage video {
+  display: none;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+.camera-stage.is-live video { display: block; }
+
+/* A live camera is a privacy-relevant state, so it is marked, not implied. */
+.camera-stage.is-live::after {
+  content: "LIVE";
+  position: absolute;
+  top: var(--s-3);
+  left: var(--s-3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px var(--s-2);
+  border-radius: var(--r-full);
+  background: var(--absent-bg);
+  border: 1px solid var(--absent-line);
+  color: var(--absent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tracking-label);
+}
+
+.camera-idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--s-3);
+  padding: var(--s-6);
+  color: var(--text-3);
+}
+.camera-idle strong { font-size: var(--fs-base); font-weight: 500; color: var(--text-1); }
+.camera-idle p { font-size: var(--fs-sm); max-width: 46ch; }
+
+#camera-bar { margin-top: var(--s-3); }
+
+/* ---- Confidence band readout -------------------------------------------- */
+.conf {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-micro);
+  white-space: nowrap;
+  color: var(--text-2);
+}
+.conf i {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: currentColor;
+  flex-shrink: 0;
+}
+.conf-high   { color: var(--present); }
+.conf-review { color: var(--unknown); }
+.conf-low    { color: var(--absent); }
+.conf-manual { color: var(--text-3); font-style: italic; }
+.conf .mono { color: var(--text-3); }
+
+/* A row the teacher still has to confirm is tinted, not just chipped, so it
+   is findable while scrolling a long register. */
+.row-review td { background: var(--unknown-bg); }
+.table tbody tr.row-review:hover td { background: rgba(245, 165, 36, 0.16); }
+
+/* ---- Recognised list: review entries ------------------------------------ */
+.roster li.is-review .check { color: var(--unknown); }
+
+/* ---- Correction controls ------------------------------------------------ */
+.correct { display: inline-flex; gap: 2px; }
+.correct .btn {
+  min-width: 28px;
+  padding: 0 var(--s-2);
+  font-family: var(--font-mono);
+}
+.correct .btn.is-current {
+  background: var(--surface-3);
+  color: var(--text-1);
+  opacity: 1;
+  cursor: default;
+}
+
+/* ---- Review tally ------------------------------------------------------- */
+.tally-review strong { color: var(--unknown); }
+
+/* ---- Unknown faces gallery ---------------------------------------------- */
+.face-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--s-4);
+}
+.face-card {
+  margin: 0;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.face-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: var(--surface-inset);
+  display: block;
+}
+.face-card figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+}
+.face-actions { display: flex; gap: var(--s-1); }
+.face-actions .btn { flex: 1; justify-content: center; }
+
+@media (max-width: 640px) {
+  .source-tabs { width: 100%; }
+  .source-tab { flex: 1; justify-content: center; padding: 0 var(--s-2); }
+  .camera-stage { aspect-ratio: 4 / 3; min-height: 220px; }
+  #camera-bar { grid-template-columns: minmax(0, 1fr); }
+  #camera-bar .btn { width: 100%; }
+  .face-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }

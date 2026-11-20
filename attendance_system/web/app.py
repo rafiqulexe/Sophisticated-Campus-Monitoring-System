@@ -15,7 +15,13 @@ import cv2
 import numpy as np
 from flask import Flask, Response, jsonify, redirect, render_template, request, session, url_for
 
-from config import DATA_DIR, NUM_REGISTRATION_SAMPLES
+from config import (
+    COSINE_MATCH_THRESHOLD,
+    COSINE_REVIEW_THRESHOLD,
+    DATA_DIR,
+    NUM_REGISTRATION_SAMPLES,
+    UNKNOWN_DIR,
+)
 from database.db_manager import (
     create_class,
     delete_class,
@@ -33,10 +39,12 @@ from database.db_manager import (
     update_class,
 )
 from utils.attendance import (
+    VALID_STATUSES,
     get_attendance_records_detailed,
     get_cached_students,
     process_attendance_image,
     resolve_absentees,
+    set_attendance_status,
 )
 from utils.registration import finalize_registration, process_registration_sample
 from web.auth import auth_bp
@@ -140,6 +148,21 @@ def create_app():
     @app.get("/students")
     def students_page():
         return render_template("students.html")
+
+    # W2 (v2.0): review queue for faces nobody matched
+    @app.get("/unknown-faces")
+    def unknown_faces_page():
+        return render_template("unknown_faces.html")
+
+    @app.get("/api/config")
+    def api_config():
+        """Thresholds the client needs so the bands are defined in one place."""
+        return jsonify({
+            "ok": True,
+            "match_threshold": COSINE_MATCH_THRESHOLD,
+            "review_threshold": COSINE_REVIEW_THRESHOLD,
+            "statuses": list(VALID_STATUSES),
+        })
 
     # -------------------------------------------------------------------- api
     @app.get("/api/stats")
@@ -403,11 +426,14 @@ def create_app():
                 "student_id": m["student_id"],
                 "name": m["name"],
                 "distance": m["distance"],
+                # W2: 'high' recorded outright, 'review' needs confirming.
+                "band": m.get("band", "high"),
             }
             for m in matches
             if m.get("match")
         ]
         unknown = sum(1 for m in matches if not m.get("match"))
+        review_count = sum(1 for m in recognized if m["band"] == "review")
 
         # With a class selected the register is now complete, so report the
         # roster arithmetic back to the UI.
@@ -427,6 +453,7 @@ def create_app():
                 "faces_detected": len(matches),
                 "recognized": recognized,
                 "unknown_count": unknown,
+                "review_count": review_count,
                 "class_id": class_id,
                 "roster_size": roster_size,
                 "absent_count": absent_count,
@@ -455,6 +482,99 @@ def create_app():
                 ),
             }
         )
+
+    # --------------------------------------------------- W2: correction
+    @app.post("/api/attendance/status")
+    def api_attendance_set_status():
+        """Set one student's status by hand: Present, Absent or Excused.
+
+        Recorded as a manual override, so a later scan of the same room does
+        not overwrite the teacher's decision.
+        """
+        payload = request.get_json(silent=True) or {}
+        student_id = (payload.get("student_id") or "").strip()
+        status = (payload.get("status") or "").strip()
+        class_id = payload.get("class_id")
+        date = payload.get("date") or datetime.now().strftime("%Y-%m-%d")
+
+        if not student_id:
+            return jsonify({"ok": False, "error": "A student is required."}), 400
+        if status not in VALID_STATUSES:
+            return jsonify({
+                "ok": False,
+                "error": f"Status must be one of {', '.join(VALID_STATUSES)}.",
+            }), 400
+        if class_id is None:
+            return jsonify({"ok": False, "error": "A course section is required."}), 400
+        if get_class(int(class_id), current_owner_id()) is None:
+            return jsonify({"ok": False, "error": "Course not found."}), 404
+
+        ok, error = set_attendance_status(
+            student_id, status, int(class_id), date, current_owner_id()
+        )
+        if not ok:
+            return jsonify({"ok": False, "error": error}), 400
+        return jsonify({"ok": True, "student_id": student_id, "status": status})
+
+    # ---------------------------------------------- W2: unknown faces
+    @app.get("/api/unknown-faces")
+    def api_unknown_faces():
+        """List the face crops saved when nobody matched.
+
+        These are shared rather than per-account: the capture happens before
+        any identity is established, so there is no owner to attribute them
+        to. Noted as a limitation in the report.
+        """
+        faces = []
+        empty = 0
+        if os.path.isdir(UNKNOWN_DIR):
+            for name in sorted(os.listdir(UNKNOWN_DIR), reverse=True):
+                if not name.lower().endswith((".jpg", ".jpeg", ".png")):
+                    continue
+                path = os.path.join(UNKNOWN_DIR, name)
+                try:
+                    stat = os.stat(path)
+                except OSError:
+                    continue
+                # A zero-byte file holds no image. Listing it would render a
+                # broken thumbnail the teacher can do nothing with, so it is
+                # reported as a count instead.
+                if stat.st_size == 0:
+                    empty += 1
+                    continue
+                faces.append({
+                    "name": name,
+                    "size": stat.st_size,
+                    "captured": datetime.fromtimestamp(stat.st_mtime)
+                                        .strftime("%Y-%m-%d %H:%M:%S"),
+                })
+        return jsonify({"ok": True, "faces": faces, "count": len(faces),
+                        "unreadable": empty})
+
+    @app.get("/api/unknown-faces/<name>")
+    def api_unknown_face_image(name):
+        """Serve one saved crop. The name is validated, never joined raw."""
+        safe = os.path.basename(name)
+        if safe != name or not safe.lower().endswith((".jpg", ".jpeg", ".png")):
+            return jsonify({"ok": False, "error": "Not found."}), 404
+        path = os.path.join(UNKNOWN_DIR, safe)
+        if not os.path.isfile(path):
+            return jsonify({"ok": False, "error": "Not found."}), 404
+        with open(path, "rb") as handle:
+            data = handle.read()
+        return Response(data, mimetype="image/jpeg")
+
+    @app.delete("/api/unknown-faces/<name>")
+    def api_unknown_face_delete(name):
+        """Discard one saved crop once it has been reviewed."""
+        safe = os.path.basename(name)
+        if safe != name or not safe.lower().endswith((".jpg", ".jpeg", ".png")):
+            return jsonify({"ok": False, "error": "Not found."}), 404
+        path = os.path.join(UNKNOWN_DIR, safe)
+        if not os.path.isfile(path):
+            return jsonify({"ok": False, "error": "Not found."}), 404
+        os.remove(path)
+        return jsonify({"ok": True})
 
     @app.post("/api/attendance/resolve")
     def api_attendance_resolve():

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Unknown faces{% endblock %}
+
+{% block content %}
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Review</p>
+    <h1>Unknown faces</h1>
+    <p class="sub">Faces detected during a scan that matched no enrolled student. Enrol the ones you recognise, discard the rest.</p>
+  </div>
+  <div class="page-head-actions">
+    <button class="btn btn-ghost" id="btn-reload" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="21 4 21 10 15 10"/><path d="M20.5 14a8.5 8.5 0 1 1-2-8.9L21 7"/>
+      </svg>
+      Refresh
+    </button>
+  </div>
+</header>
+
+<section class="panel panel-quiet">
+  <div class="panel-body">
+    <p class="field-hint" id="privacy-note">
+      These crops are stored unencrypted on the server and are kept until deleted here.
+      A retention policy is planned for a later milestone. Discard anything you do not need.
+    </p>
+  </div>
+</section>
+
+<section class="panel" aria-labelledby="faces-heading">
+  <div class="panel-head">
+    <h2 id="faces-heading">Captured faces</h2>
+    <span class="chip chip-plain" id="face-count">—</span>
+  </div>
+
+  <div class="panel-body">
+    <div class="face-grid" id="face-grid">
+      <div class="skel" style="height:150px"></div>
+      <div class="skel" style="height:150px"></div>
+      <div class="skel" style="height:150px"></div>
+      <div class="skel" style="height:150px"></div>
+    </div>
+  </div>
+
+  <div class="empty hidden" id="faces-empty">
+    <span class="empty-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 15.5 9.5"/>
+      </svg>
+    </span>
+    <strong>Nothing to review</strong>
+    <p>Every face from the most recent scans was matched to an enrolled student.</p>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/unknown_faces.js') }}"></script>
+{% endblock %}

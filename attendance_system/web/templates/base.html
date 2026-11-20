@@ -55,6 +55,15 @@
           <span>Take attendance</span>
         </a>
 
+        <a class="nav-item" href="/unknown-faces"
+           {% if request.path.startswith('/unknown-faces') %}aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20"/>
+            <circle cx="10" cy="8" r="3.5"/><line x1="19" y1="6" x2="19" y2="11"/><line x1="19" y1="14" x2="19.01" y2="14"/>
+          </svg>
+          <span>Unknown faces</span>
+        </a>
+
         <p class="nav-label">Manage</p>
         <a class="nav-item" href="/courses"
            {% if request.path.startswith('/courses') %}aria-current="page"{% endif %}>

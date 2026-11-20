@@ -36,10 +36,61 @@
   </div>
 </section>
 
-<!-- Uploader. Collapses to a compact bar once a photo is chosen. ---------- -->
+<!-- Capture source: live camera or an uploaded photo. -------------------- -->
 <section aria-labelledby="upload-heading">
-  <h2 class="sr-only" id="upload-heading">Upload a classroom photo</h2>
+  <h2 class="sr-only" id="upload-heading">Capture a classroom photo</h2>
 
+  <div class="source-tabs" role="tablist" aria-label="Capture method">
+    <button class="source-tab is-active" id="tab-camera" role="tab"
+            aria-selected="true" aria-controls="pane-camera" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+      </svg>
+      Use camera
+    </button>
+    <button class="source-tab" id="tab-upload" role="tab"
+            aria-selected="false" aria-controls="pane-upload" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="16.5 8 12 3.5 7.5 8"/><line x1="12" y1="3.5" x2="12" y2="15"/>
+      </svg>
+      Upload a photo
+    </button>
+  </div>
+
+  <div id="pane-camera" role="tabpanel" aria-labelledby="tab-camera">
+    <div class="camera-stage" id="camera-stage">
+      <video id="camera-video" playsinline muted autoplay aria-label="Live camera preview"></video>
+      <div class="camera-idle" id="camera-idle">
+        <span class="empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+          </svg>
+        </span>
+        <strong>Camera is off</strong>
+        <p id="camera-idle-hint">Start the camera, point it at the room, then snap a frame.</p>
+      </div>
+    </div>
+
+    <div class="scan-bar" id="camera-bar">
+      <span class="cluster">
+        <button class="btn btn-secondary" id="btn-camera-start" type="button">Start camera</button>
+        <button class="btn btn-ghost hidden" id="btn-camera-stop" type="button">Stop</button>
+        <span class="field hidden" id="camera-device-field" style="min-width:min(240px,100%)">
+          <label class="sr-only" for="camera-device">Camera</label>
+          <select id="camera-device"></select>
+        </span>
+      </span>
+      <button class="btn btn-primary btn-lg" id="btn-snap" type="button" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
+          <circle cx="12" cy="12" r="3.25"/>
+        </svg>
+        Snap &amp; mark attendance
+      </button>
+    </div>
+  </div>
+
+  <div id="pane-upload" role="tabpanel" aria-labelledby="tab-upload" class="hidden">
   <label class="dropzone" for="att-file" id="att-dropzone">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="16.5 8 12 3.5 7.5 8"/><line x1="12" y1="3.5" x2="12" y2="15"/>
@@ -58,6 +109,7 @@
       </svg>
       Run recognition
     </button>
+  </div>
   </div>
 </section>
 
@@ -101,6 +153,10 @@
         <strong id="res-recognized">0</strong>
         <span>Recognised</span>
       </div>
+      <div class="tally tally-review hidden" id="tally-review">
+        <strong id="res-review">0</strong>
+        <span>Needs review</span>
+      </div>
       <div class="tally tally-unknown">
         <strong id="res-unknown">0</strong>
         <span>Unidentified</span>
@@ -142,13 +198,15 @@
           <th scope="col">Student</th>
           <th scope="col">ID</th>
           <th scope="col">Time</th>
+          <th scope="col">Confidence</th>
           <th scope="col">Status</th>
+          <th scope="col"><span class="sr-only">Correct status</span></th>
         </tr>
       </thead>
       <tbody id="log-body">
-        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
-        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
-        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
+        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
+        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
+        <tr><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td><td><span class="skel skel-line"></span></td></tr>
       </tbody>
     </table>
   </div>

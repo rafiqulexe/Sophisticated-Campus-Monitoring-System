@@ -28,7 +28,29 @@
     unknownNote: $('#unknown-note'),
     logBody: $('#log-body'),
     logCount: $('#log-count'),
+    // W2: camera capture, confidence bands, correction
+    tabCamera: $('#tab-camera'),
+    tabUpload: $('#tab-upload'),
+    paneCamera: $('#pane-camera'),
+    paneUpload: $('#pane-upload'),
+    video: $('#camera-video'),
+    cameraStage: $('#camera-stage'),
+    cameraIdle: $('#camera-idle'),
+    cameraIdleHint: $('#camera-idle-hint'),
+    btnCameraStart: $('#btn-camera-start'),
+    btnCameraStop: $('#btn-camera-stop'),
+    btnSnap: $('#btn-snap'),
+    deviceField: $('#camera-device-field'),
+    deviceSelect: $('#camera-device'),
+    tallyReview: $('#tally-review'),
+    resReview: $('#res-review'),
   };
+
+  /* Thresholds come from the server so the bands are defined in one place. */
+  let BANDS = { match_threshold: 0.4, review_threshold: 0.6 };
+  api('/api/config')
+    .then((cfg) => { BANDS = { ...BANDS, ...cfg }; })
+    .catch(() => { /* fall back to the defaults above */ });
 
   /* ---- course sections (W1) --------------------------------------------
      The chosen section scopes recognition to its roster and switches on
@@ -102,6 +124,144 @@
     }
   });
 
+
+  /* ═══ W2 · capture source tabs ═══════════════════════════════════════ */
+  function showSource(which) {
+    const camera = which === 'camera';
+    els.tabCamera.classList.toggle('is-active', camera);
+    els.tabUpload.classList.toggle('is-active', !camera);
+    els.tabCamera.setAttribute('aria-selected', String(camera));
+    els.tabUpload.setAttribute('aria-selected', String(!camera));
+    els.paneCamera.classList.toggle('hidden', !camera);
+    els.paneUpload.classList.toggle('hidden', camera);
+    if (!camera) stopCamera();
+  }
+
+  els.tabCamera.addEventListener('click', () => showSource('camera'));
+  els.tabUpload.addEventListener('click', () => showSource('upload'));
+
+  /* ═══ W2 · live camera ═══════════════════════════════════════════════
+     getUserMedia needs a secure context: https, or http on localhost.
+     Opened over a LAN address it is blocked by the browser, not by us, so
+     that case is reported explicitly rather than as a generic failure. */
+  let stream = null;
+
+  function secureContextHint() {
+    if (window.isSecureContext) return null;
+    return `The camera needs a secure connection. This page is on `
+      + `${location.protocol}//${location.hostname}, so the browser blocks it. `
+      + `Open the app on http://127.0.0.1:5000 or serve it over HTTPS.`;
+  }
+
+  function cameraErrorMessage(err) {
+    switch (err && err.name) {
+      case 'NotAllowedError':
+      case 'SecurityError':
+        return 'Camera permission was refused. Allow it in the browser address bar, then start the camera again.';
+      case 'NotFoundError':
+      case 'OverconstrainedError':
+        return 'No camera was found on this device.';
+      case 'NotReadableError':
+        return 'The camera is already in use by another application.';
+      default:
+        return `Could not start the camera: ${(err && err.message) || 'unknown error'}`;
+    }
+  }
+
+  async function listCameras() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter((d) => d.kind === 'videoinput');
+    // Labels are only populated once permission has been granted.
+    if (cams.length < 2) { els.deviceField.classList.add('hidden'); return; }
+    els.deviceSelect.innerHTML = cams.map((c, i) =>
+      `<option value="${escapeHtml(c.deviceId)}">${escapeHtml(c.label || `Camera ${i + 1}`)}</option>`).join('');
+    els.deviceField.classList.remove('hidden');
+  }
+
+  async function startCamera(deviceId) {
+    const blocked = secureContextHint();
+    if (blocked) { toast(blocked, 'error'); els.cameraIdleHint.textContent = blocked; return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast('This browser does not support camera capture.', 'error');
+      return;
+    }
+
+    setLoading(els.btnCameraStart, true, 'Starting camera');
+    try {
+      stopCamera();
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: deviceId
+          ? { deviceId: { exact: deviceId } }
+          : { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+      });
+      els.video.srcObject = stream;
+      await els.video.play().catch(() => { /* autoplay policies; the frame still arrives */ });
+
+      els.cameraStage.classList.add('is-live');
+      els.cameraIdle.classList.add('hidden');
+      els.btnCameraStart.classList.add('hidden');
+      els.btnCameraStop.classList.remove('hidden');
+      els.btnSnap.disabled = false;
+      await listCameras();
+    } catch (err) {
+      const message = cameraErrorMessage(err);
+      toast(message, 'error');
+      els.cameraIdleHint.textContent = message;
+    } finally {
+      setLoading(els.btnCameraStart, false);
+    }
+  }
+
+  function stopCamera() {
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      stream = null;
+    }
+    els.video.srcObject = null;
+    els.cameraStage.classList.remove('is-live');
+    els.cameraIdle.classList.remove('hidden');
+    els.btnCameraStart.classList.remove('hidden');
+    els.btnCameraStop.classList.add('hidden');
+    els.btnSnap.disabled = true;
+  }
+
+  /* Grab the current video frame at its native resolution. Downscaling
+     happens afterwards in shrinkImage, same as the upload path. */
+  function captureFrame() {
+    const w = els.video.videoWidth;
+    const h = els.video.videoHeight;
+    if (!w || !h) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(els.video, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', 0.92);
+  }
+
+  els.btnCameraStart.addEventListener('click', () => startCamera(els.deviceSelect.value || null));
+  els.btnCameraStop.addEventListener('click', stopCamera);
+  els.deviceSelect.addEventListener('change', () => startCamera(els.deviceSelect.value));
+
+  els.btnSnap.addEventListener('click', async () => {
+    const frame = captureFrame();
+    if (!frame) { toast('The camera has not produced a frame yet.', 'warn'); return; }
+    try {
+      const image = await shrinkImage(frame);
+      processImage(image, els.btnSnap);
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  });
+
+  // Releasing the camera when the page goes away avoids leaving the
+  // recording indicator lit on the user's device.
+  window.addEventListener('pagehide', stopCamera);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') stopCamera();
+  });
+
   /* ---- staged progress -------------------------------------------------
      The API is a single call, so stages are advanced on our side: upload
      completes when the request goes out, detection is assumed once the
@@ -154,21 +314,30 @@
       els.resUnknown.textContent = res.unknown_count;
       els.resultImg.src = res.image;
 
+      // W2: how many matches landed in the review band.
+      const review = res.review_count || 0;
+      els.tallyReview.classList.toggle('hidden', review === 0);
+      els.resReview.textContent = review;
+
       // Absent tally only means anything when a roster was in play.
       const scoped = res.class_id != null;
       els.tallyAbsent.classList.toggle('hidden', !scoped);
       if (scoped) els.resAbsent.textContent = res.absent_count;
 
       els.recognizedList.innerHTML = res.recognized.length
-        ? `<ul class="roster">${res.recognized.map((r) => `
-            <li>
-              <span class="check">${ICONS.check}</span>
+        ? `<ul class="roster">${res.recognized.map((r) => {
+            const low = r.band === 'review';
+            return `
+            <li class="${low ? 'is-review' : ''}">
+              <span class="check">${low ? ICONS.warn : ICONS.check}</span>
               <span>
                 <strong>${escapeHtml(r.name)}</strong>
                 <span class="sid">${escapeHtml(r.student_id)}</span>
               </span>
+              ${low ? '<span class="chip chip-unknown">Confirm</span>' : ''}
               <span class="dist">d ${escapeHtml(r.distance)}</span>
-            </li>`).join('')}</ul>`
+            </li>`;
+          }).join('')}</ul>`
         : emptyState(
             'No enrolled student matched',
             'Faces were found but none matched an enrolled profile. Check that the students are registered and clearly visible.',
@@ -284,6 +453,73 @@
     els.dropzone.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
 
+
+  /* ═══ W2 · register cells ════════════════════════════════════════════ */
+
+  /* A distance only means something for a student the system matched.
+     Absent and Excused rows carry no measurement, so they show nothing
+     rather than a misleading zero. */
+  function confidenceCell(r) {
+    if (r.manual_override) {
+      return '<span class="conf conf-manual">set by teacher</span>';
+    }
+    if (r.confidence_score == null) return '<span class="text-3">—</span>';
+    const d = Number(r.confidence_score);
+    const band = d <= BANDS.match_threshold ? 'high'
+      : d <= BANDS.review_threshold ? 'review' : 'low';
+    const label = { high: 'High', review: 'Low', low: 'Very low' }[band];
+    return `<span class="conf conf-${band}" title="cosine distance ${d.toFixed(4)}">`
+      + `<i></i>${label} <span class="mono">${d.toFixed(2)}</span></span>`;
+  }
+
+  function statusChip(r) {
+    const cls = { Present: 'chip-present', Absent: 'chip-absent', Excused: 'chip-info' };
+    const chip = cls[r.status] || 'chip-plain';
+    const flag = r.needs_review
+      ? ' <span class="chip chip-unknown" title="Matched near the boundary">Confirm</span>'
+      : '';
+    return `<span class="chip ${chip}">${escapeHtml(r.status || 'Present')}</span>${flag}`;
+  }
+
+  /* One click per status. The control for the status a row already holds
+     is marked current and disabled, so the buttons double as a readout. */
+  function correctionButtons(r, classId) {
+    if (!classId) return '<span class="text-3">—</span>';
+    const sid = escapeHtml(r.student_id);
+    return '<span class="correct">' + ['Present', 'Absent', 'Excused'].map((st) => {
+      const current = r.status === st;
+      return `<button class="btn btn-quiet btn-sm${current ? ' is-current' : ''}"`
+        + ` type="button" data-set-status="${st}" data-student="${sid}"`
+        + `${current ? ' disabled aria-current="true"' : ''}`
+        + ` title="Mark ${escapeHtml(r.name || sid)} ${st.toLowerCase()}">${st[0]}</button>`;
+    }).join('') + '</span>';
+  }
+
+  /* Delegated so it survives every re-render of the table. */
+  els.logBody.addEventListener('click', async (event) => {
+    const btn = event.target.closest('[data-set-status]');
+    if (!btn || btn.disabled) return;
+    const classId = selectedClassId();
+    if (!classId) { toast('Choose a course section first.', 'warn'); return; }
+
+    setLoading(btn, true, 'Saving');
+    try {
+      await api('/api/attendance/status', {
+        method: 'POST',
+        body: JSON.stringify({
+          student_id: btn.dataset.student,
+          status: btn.dataset.setStatus,
+          class_id: Number(classId),
+        }),
+      });
+      toast(`${btn.dataset.student} marked ${btn.dataset.setStatus.toLowerCase()}`, 'success');
+      loadLog();
+    } catch (err) {
+      toast(err.message, 'error');
+      setLoading(btn, false);
+    }
+  });
+
   /* ---- log ------------------------------------------------------------- */
   async function loadLog() {
     try {
@@ -300,18 +536,16 @@
       els.logAbsent.textContent = `${absent.length} absent`;
 
       els.logBody.innerHTML = records.length
-        ? records.map((r) => {
-            const isPresent = r.status === 'Present';
-            const chip = isPresent ? 'chip-present' : 'chip-absent';
-            return `
-          <tr>
+        ? records.map((r) => `
+          <tr class="${r.needs_review ? 'row-review' : ''}">
             <td><strong>${escapeHtml(r.name || 'Unknown student')}</strong></td>
             <td class="mono">${escapeHtml(r.student_id)}</td>
-            <td class="mono">${escapeHtml(isPresent ? ((r.timestamp || '').split(' ')[1] || '—') : '—')}</td>
-            <td><span class="chip ${chip}">${escapeHtml(r.status || 'Present')}</span></td>
-          </tr>`;
-          }).join('')
-        : `<tr><td colspan="4">${emptyState(
+            <td class="mono">${escapeHtml(r.status === 'Present' ? ((r.timestamp || '').split(' ')[1] || '—') : '—')}</td>
+            <td>${confidenceCell(r)}</td>
+            <td>${statusChip(r)}</td>
+            <td class="shrink">${correctionButtons(r, classId)}</td>
+          </tr>`).join('')
+        : `<tr><td colspan="6">${emptyState(
              'Register is empty',
              classId
                ? 'Nothing recorded for this section today. Scan the room, or close the register to mark everyone absent.'
@@ -319,7 +553,7 @@
              'camera',
            )}</td></tr>`;
     } catch (err) {
-      els.logBody.innerHTML = '<tr><td colspan="4"></td></tr>';
+      els.logBody.innerHTML = '<tr><td colspan="6"></td></tr>';
       els.logBody.querySelector('td').appendChild(
         retryState('Could not load the register.', loadLog),
       );

@@ -124,11 +124,18 @@ ATTENDANCE_SCHEMA = '''
         owner_id INTEGER NOT NULL DEFAULT 0,
         class_id INTEGER,
         date DATE NOT NULL,
+        -- Present, Absent or Excused. Excused is set by a teacher only.
         status TEXT DEFAULT 'Present',
-        -- Euclidean distance from the matched embedding: LOWER IS A BETTER
+        -- COSINE distance from the matched embedding: LOWER IS A BETTER
         -- match. Named confidence_score to match the roadmap spec; NULL for
         -- absentees and for rows written before this column existed.
         confidence_score REAL,
+        -- W2: 1 when the match fell in the review band, meaning it was
+        -- recorded but a teacher should confirm it. Cleared when they do.
+        needs_review INTEGER NOT NULL DEFAULT 0,
+        -- W2: set when a teacher overrides the recorded status by hand, so
+        -- a later rescan does not silently undo their decision.
+        manual_override INTEGER NOT NULL DEFAULT 0,
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (student_id) REFERENCES students(student_id),
         FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
@@ -200,6 +207,13 @@ def _ensure_schema(conn):
 
     _migrate_attendance_for_classes(conn)
     conn.execute(ATTENDANCE_SCHEMA)
+
+    # W2: add the review/override columns to registers created before them.
+    attendance_cols = _table_columns(conn, "attendance")
+    if "needs_review" not in attendance_cols:
+        conn.execute("ALTER TABLE attendance ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0")
+    if "manual_override" not in attendance_cols:
+        conn.execute("ALTER TABLE attendance ADD COLUMN manual_override INTEGER NOT NULL DEFAULT 0")
 
     conn.execute("CREATE INDEX IF NOT EXISTS idx_enroll_class ON class_enrollments(class_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_attend_lookup ON attendance(owner_id, class_id, date)")

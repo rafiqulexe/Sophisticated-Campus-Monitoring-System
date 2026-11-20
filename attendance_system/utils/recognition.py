@@ -9,7 +9,12 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 
 from deepface import DeepFace
-from config import DEEPFACE_MODEL, RECOGNITION_THRESHOLD
+from config import (
+    COSINE_MATCH_THRESHOLD,
+    COSINE_REVIEW_THRESHOLD,
+    DEEPFACE_MODEL,
+    RECOGNITION_THRESHOLD,
+)
 
 def get_face_embedding(face_image, model_name=DEEPFACE_MODEL):
     """W2-T3: Generate 128-d embedding from face image"""
@@ -44,34 +49,63 @@ def compare_faces(embedding1, embedding2, metric="cosine"):
     else:
         raise ValueError(f"Unknown metric: {metric}")
 
+def confidence_band(distance, match_threshold=COSINE_MATCH_THRESHOLD,
+                    review_threshold=COSINE_REVIEW_THRESHOLD):
+    """W2: classify a cosine distance into one of three bands.
+
+    'high'    the match is confident enough to record without asking
+    'review'  plausible but near the boundary; a teacher should confirm it
+    'unknown' beyond the accept boundary, so not a match at all
+    """
+    if distance is None:
+        return 'unknown'
+    if distance <= match_threshold:
+        return 'high'
+    if distance <= review_threshold:
+        return 'review'
+    return 'unknown'
+
+
 def recognize_face(face_embedding, known_students, threshold=RECOGNITION_THRESHOLD, metric="cosine"):
-    """W2-T5: Find best matching student"""
+    """W2-T5: Find the best matching student and band the result.
+
+    Returns 'band' alongside 'match' so callers can distinguish a confident
+    identification from one that only just cleared the boundary. 'match'
+    keeps its original meaning: the distance is within `threshold`.
+    """
     if len(known_students) == 0:
-        return {'student_id': 'UNKNOWN', 'name': 'Unknown', 'distance': None, 'match': False}
-    
+        return {'student_id': 'UNKNOWN', 'name': 'Unknown', 'distance': None,
+                'match': False, 'band': 'unknown'}
+
     best_match = None
     best_distance = float('inf')
-    
+
     for student in known_students:
         distance = compare_faces(face_embedding, student['embedding'], metric)
         if distance < best_distance:
             best_distance = distance
             best_match = student
-    
+
+    distance = round(best_distance, 4)
+    # Band against the configured review boundary, but never report a band
+    # better than the caller's own threshold allows.
+    band = confidence_band(best_distance, review_threshold=min(threshold, COSINE_REVIEW_THRESHOLD))
+
     if best_distance <= threshold:
         return {
             'student_id': best_match['student_id'],
             'name': best_match['name'],
-            'distance': round(best_distance, 4),
-            'match': True
+            'distance': distance,
+            'match': True,
+            'band': band,
         }
-    else:
-        return {
-            'student_id': 'UNKNOWN',
-            'name': 'Unknown',
-            'distance': round(best_distance, 4),
-            'match': False
-        }
+    return {
+        'student_id': 'UNKNOWN',
+        'name': 'Unknown',
+        'distance': distance,
+        'match': False,
+        'band': 'unknown',
+    }
 
 def batch_recognize(face_embeddings, known_students, threshold=RECOGNITION_THRESHOLD, metric="cosine"):
     """Recognize multiple faces at once (for group photos)"""

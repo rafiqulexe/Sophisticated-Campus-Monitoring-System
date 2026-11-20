@@ -24,11 +24,17 @@ def get_cached_students(force_refresh=False, owner_id=None):
 
 
 def mark_attendance(student_id, status="Present", attendance_date=None, owner_id=0,
-                    class_id=None, confidence_score=None):
+                    class_id=None, confidence_score=None, needs_review=False,
+                    manual=False):
     """Insert or update one attendance row for a student, date and class.
 
     W1 (v1.1): attendance is now keyed by class as well, and carries the
     match distance that produced it.
+
+    W2 (v2.0): `needs_review` marks a match that landed in the review band,
+    and `manual` records that a teacher set this status by hand. A manual
+    decision is never overwritten by a later automatic scan, otherwise
+    rescanning a room would silently undo the teacher's corrections.
 
     INSERT OR REPLACE cannot be used here. The uniqueness rule includes
     class_id, and SQLite treats every NULL as distinct in a UNIQUE index, so
@@ -43,28 +49,35 @@ def mark_attendance(student_id, status="Present", attendance_date=None, owner_id
     try:
         if class_id is None:
             existing = conn.execute(
-                "SELECT id FROM attendance WHERE owner_id = ? AND class_id IS NULL "
-                "AND student_id = ? AND date = ?",
+                "SELECT id, manual_override FROM attendance WHERE owner_id = ? "
+                "AND class_id IS NULL AND student_id = ? AND date = ?",
                 (owner_id, student_id, attendance_date),
             ).fetchone()
         else:
             existing = conn.execute(
-                "SELECT id FROM attendance WHERE owner_id = ? AND class_id = ? "
-                "AND student_id = ? AND date = ?",
+                "SELECT id, manual_override FROM attendance WHERE owner_id = ? "
+                "AND class_id = ? AND student_id = ? AND date = ?",
                 (owner_id, class_id, student_id, attendance_date),
             ).fetchone()
 
         if existing:
+            # An automatic scan leaves a teacher's own decision alone.
+            if existing["manual_override"] and not manual:
+                return True
             conn.execute(
-                "UPDATE attendance SET status = ?, confidence_score = ?, timestamp = ? WHERE id = ?",
-                (status, confidence_score, now, existing["id"]),
+                "UPDATE attendance SET status = ?, confidence_score = ?, "
+                "needs_review = ?, manual_override = ?, timestamp = ? WHERE id = ?",
+                (status, confidence_score, int(needs_review), int(manual), now,
+                 existing["id"]),
             )
         else:
             conn.execute(
                 "INSERT INTO attendance "
-                "(student_id, owner_id, class_id, date, status, confidence_score, timestamp) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (student_id, owner_id, class_id, attendance_date, status, confidence_score, now),
+                "(student_id, owner_id, class_id, date, status, confidence_score, "
+                " needs_review, manual_override, timestamp) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (student_id, owner_id, class_id, attendance_date, status,
+                 confidence_score, int(needs_review), int(manual), now),
             )
         conn.commit()
         return True
@@ -73,6 +86,34 @@ def mark_attendance(student_id, status="Present", attendance_date=None, owner_id
         return False
     finally:
         conn.close()
+
+
+VALID_STATUSES = ("Present", "Absent", "Excused")
+
+
+def set_attendance_status(student_id, status, class_id, attendance_date=None,
+                          owner_id=0):
+    """W2: a teacher sets a status by hand, clearing any review flag.
+
+    Used by the one-click Present / Absent / Excused controls. The row is
+    marked as a manual override so a later scan of the same room does not
+    overwrite the decision. Returns (ok, error).
+    """
+    if status not in VALID_STATUSES:
+        return False, f"Status must be one of {', '.join(VALID_STATUSES)}."
+
+    ok = mark_attendance(
+        student_id,
+        status=status,
+        attendance_date=attendance_date,
+        owner_id=owner_id,
+        class_id=class_id,
+        # A hand-set status carries no machine confidence.
+        confidence_score=None,
+        needs_review=False,
+        manual=True,
+    )
+    return (True, None) if ok else (False, "Could not update the register.")
 
 
 def resolve_absentees(class_id, attendance_date=None, owner_id=0):
@@ -143,6 +184,7 @@ def get_attendance_records_detailed(attendance_date=None, owner_id=None, class_i
         SELECT a.student_id, COALESCE(s.name, e.name) AS name,
                a.date, a.status, a.timestamp,
                a.confidence_score, a.class_id,
+               a.needs_review, a.manual_override,
                c.course_code, c.section
         FROM attendance a
         LEFT JOIN students s ON a.student_id = s.student_id AND a.owner_id = s.owner_id
@@ -221,10 +263,14 @@ def process_attendance_image(image, owner_id=None, class_id=None):
             matches.append(res)
 
             if res['match']:
-                # 4. Mark attendance in DB, keeping the match distance
+                # 4. Mark attendance, keeping the distance and, when the match
+                #    only just cleared the boundary, a flag for the teacher.
+                review = res.get('band') == 'review'
                 mark_attendance(res['student_id'], owner_id=owner_id or 0,
-                                class_id=class_id, confidence_score=res['distance'])
-                labels.append(f"{res['name']} ({res['distance']})")
+                                class_id=class_id, confidence_score=res['distance'],
+                                needs_review=review)
+                suffix = ' ?' if review else ''
+                labels.append(f"{res['name']} ({res['distance']}){suffix}")
             else:
                 # W5-T7: Handle "Unknown" faces – log them for manual review
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
