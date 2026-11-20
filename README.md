@@ -7,11 +7,6 @@
 
 ## 👥 Authors & Lead Developers
 * **Rafiqul Islam** (ID: 2122414642) — `rafiqul.islam12@northsouth.edu`
-* **Safayat Ibrahim** (ID: 2131174642) — `safayat.ibrahim@northsouth.edu`
-
-**Supervisor:** Mohammad Shifat-E-Rabbi
-
----
 
 ## 📌 Project Vision & Overview
 **CampusEye** replaces the classroom roll call and the RFID card with a single photograph. A teacher enrols each student once, then photographs the room; every registered face is detected, matched and written to the register, and everyone on the course roster who was not recognised is marked absent.
@@ -61,7 +56,7 @@ timeline
       W8 : Benchmarking & thesis defence
 ```
 
-### Delivered in CSE499A
+### Delivered 
 
 | Area | Deliverables | Status |
 | :--- | :--- | :--- |
@@ -71,7 +66,7 @@ timeline
 | **Web interface** | Flask application, JSON API, accessibility-checked dark UI, responsive 375–1440 px | ✅ Complete |
 | **Courses & rosters** | `classes` / `class_enrollments` tables, CSV import, per-section attendance, absentee resolution | ✅ Complete |
 
-### Planned for CSE499B
+### Planned 
 
 | Version | Milestone | Key deliverables |
 | :--- | :--- | :--- |
